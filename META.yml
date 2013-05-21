@@ -2,7 +2,8 @@
 abstract: "A thin wrapper around Gerrit's REST API"
 author:
   - 'Gustavo L. de M. Chaves <gnustavo@cpan.org>'
-build_requires: {}
+build_requires:
+  Test::More: 0
 configure_requires:
   ExtUtils::MakeMaker: 6.30
 dynamic_config: 0
@@ -12,7 +13,20 @@ meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4
 name: Gerrit-REST
+recommends:
+  HTTP::Status: 0
+  Net::Netrc: 0
+requires:
+  Carp: 0
+  Data::Util: 0
+  JSON: 0
+  REST::Client: 0
+  URI: 0
+  perl: 5.010
+  strict: 0
+  utf8: 0
+  warnings: 0
 resources:
   homepage: https://metacpan.org/module/Gerrit::REST
   repository: https://github.com/gnustavo/Gerrit-REST.git
-version: 0.001
+version: 0.002
