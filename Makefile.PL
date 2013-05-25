@@ -24,14 +24,16 @@ my %WriteMakefileArgs = (
   "PREREQ_PM" => {
     "Carp" => 0,
     "Data::Util" => 0,
+    "HTTP::Status" => 0,
     "JSON" => 0,
+    "Net::Netrc" => 0,
     "REST::Client" => 0,
     "URI" => 0,
     "strict" => 0,
     "utf8" => 0,
     "warnings" => 0
   },
-  "VERSION" => "0.002",
+  "VERSION" => "0.003",
   "test" => {
     "TESTS" => "t/*.t"
   }
