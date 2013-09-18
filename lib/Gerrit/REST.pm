@@ -1,6 +1,6 @@
 package Gerrit::REST;
 {
-  $Gerrit::REST::VERSION = '0.003';
+  $Gerrit::REST::VERSION = '0.004';
 }
 # ABSTRACT: A thin wrapper around Gerrit's REST API
 
@@ -79,7 +79,14 @@ sub _content {
         my $message = eval {require HTTP::Status}
             ? HTTP::Status::status_message($code) || '(unknown)'
                 : '(?)';
-        croak "ERROR: $code - $message\n$type\n$content\n";
+        warn "GERRIT ERROR ($code - $message):\n";
+        if ($type =~ m:text/plain:) {
+            croak $content;
+        } elsif ($type =~ m:text/html:i && eval {require HTML::TreeBuilder}) {
+            croak HTML::TreeBuilder->new_from_content($content)->as_text;
+        } else {
+            croak "[Content-Type: $type] $content\n";
+        }
     }
 
     if (! defined $type) {
@@ -149,7 +156,7 @@ Gerrit::REST - A thin wrapper around Gerrit's REST API
 
 =head1 VERSION
 
-version 0.003
+version 0.004
 
 =head1 SYNOPSIS
 
