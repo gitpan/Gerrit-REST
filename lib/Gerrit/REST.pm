@@ -1,6 +1,6 @@
 package Gerrit::REST;
 {
-  $Gerrit::REST::VERSION = '0.004';
+  $Gerrit::REST::VERSION = '0.005';
 }
 # ABSTRACT: A thin wrapper around Gerrit's REST API
 
@@ -83,7 +83,7 @@ sub _content {
         if ($type =~ m:text/plain:) {
             croak $content;
         } elsif ($type =~ m:text/html:i && eval {require HTML::TreeBuilder}) {
-            croak HTML::TreeBuilder->new_from_content($content)->as_text;
+            croak(HTML::TreeBuilder->new_from_content($content)->as_text);
         } else {
             croak "[Content-Type: $type] $content\n";
         }
@@ -156,7 +156,7 @@ Gerrit::REST - A thin wrapper around Gerrit's REST API
 
 =head1 VERSION
 
-version 0.004
+version 0.005
 
 =head1 SYNOPSIS
 
