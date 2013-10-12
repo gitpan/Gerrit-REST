@@ -21,8 +21,6 @@ recommends:
 requires:
   Carp: 0
   Data::Util: 0
-  HTML::TreeBuilder: 0
-  HTTP::Status: 0
   JSON: 0
   Net::Netrc: 0
   REST::Client: 0
@@ -34,4 +32,4 @@ requires:
 resources:
   homepage: https://metacpan.org/module/Gerrit::REST
   repository: https://github.com/gnustavo/Gerrit-REST.git
-version: 0.005
+version: 0.006
