@@ -1,6 +1,6 @@
 package Gerrit::REST;
 {
-  $Gerrit::REST::VERSION = '0.006';
+  $Gerrit::REST::VERSION = '0.007';
 }
 # ABSTRACT: A thin wrapper around Gerrit's REST API
 
@@ -76,7 +76,7 @@ sub _content {
     my $content = $rest->responseContent();
 
     $code =~ /^2/
-        or croak <<EOF;
+        or die <<EOF;
 Code: $code
 Content-Type: $type
 
@@ -150,7 +150,7 @@ Gerrit::REST - A thin wrapper around Gerrit's REST API
 
 =head1 VERSION
 
-version 0.006
+version 0.007
 
 =head1 SYNOPSIS
 
