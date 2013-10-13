@@ -6,6 +6,7 @@ Makefile.PL
 README.pod
 dist.ini
 lib/Gerrit/REST.pm
+lib/Gerrit/REST/Exception.pm
 t/00-load.t
 t/release-kwalitee.t
 t/release-pod-coverage.t

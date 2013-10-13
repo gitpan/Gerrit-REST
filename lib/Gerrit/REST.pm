@@ -1,6 +1,6 @@
 package Gerrit::REST;
 {
-  $Gerrit::REST::VERSION = '0.007';
+  $Gerrit::REST::VERSION = '0.008';
 }
 # ABSTRACT: A thin wrapper around Gerrit's REST API
 
@@ -14,6 +14,7 @@ use URI;
 use JSON;
 use Data::Util qw/:check/;
 use REST::Client;
+use Gerrit::REST::Exception;
 
 sub new {
     my ($class, $URL, $username, $password, $rest_client_config) = @_;
@@ -75,13 +76,10 @@ sub _content {
     my $type    = $rest->responseHeader('Content-Type');
     my $content = $rest->responseContent();
 
-    $code =~ /^2/
-        or die <<EOF;
-Code: $code
-Content-Type: $type
+    ## no critic (ErrorHandling::RequireCarping)
 
-$content
-EOF
+    $code =~ /^2/
+        or die Gerrit::REST::Exception->new($code, $type, $content);
 
     if (! defined $type) {
         return;
@@ -89,13 +87,21 @@ EOF
         if (substr($content, 0, 4) eq ")]}'") {
             return $self->{json}->decode(substr($content, 5));
         } else {
-            croak "Missing \")]}'\" prefix for JSON content:\n$content\n";
+            die Gerrit::REST::Exception->new(
+                '500', 'text/plain',
+                "Missing \")]}'\" prefix for JSON content:\n$content\n",
+            );
         }
     } elsif ($type =~ m:^text/plain:i) {
         return $content;
     } else {
-        croak "I don't understand content with Content-Type '$type'.\n";
+        die Gerrit::REST::Exception->new(
+            '500', 'text/plain',
+            "I don't understand content with Content-Type '$type'.\n",
+        );
     }
+
+    ## use critic
 }
 
 sub GET {
@@ -150,7 +156,7 @@ Gerrit::REST - A thin wrapper around Gerrit's REST API
 
 =head1 VERSION
 
-version 0.007
+version 0.008
 
 =head1 SYNOPSIS
 
@@ -181,6 +187,17 @@ version 0.007
         message => 'Some nits need to be fixed.',
         labels  => {'Code-Review' => -1},
     });
+
+    # How to deal with errors easily
+    my $project = eval { $gerrit->GET('/projects/myproject') };
+    die $@->as_text if $@;
+
+    # How to deal with errors thoroughly
+    my $project = eval { $gerrit->GET('/projects/myproject') };
+    if ($@) {
+        my ($code, $type, $content) = @{$@}{qw/code type content/};
+        # ...
+    }
 
 =head1 DESCRIPTION
 
@@ -271,17 +288,13 @@ return C<undef>. The methods croak if they get any other type of
 values in return.
 
 In case of errors (i.e., if the underlying HTTP method return an error
-code different from 2xx) the methods croak with a multi-line string
-like this:
-
-    Code: <CODE>
-    Content-Type: <CONTENT-TYPE>
-
-    <CONTENT>
-
-So, in order to treat errors you must invoke the methods in an eval
-block or use any of the exception handling Perl modules, such as
-C<Try::Tiny> and C<Try::Catch>.
+code different from 2xx) the method dies throwing a
+C<Gerrit::REST::Exception> object. These objects are simple hash-refs
+containing the C<code>, the C<type>, and the C<content> of the HTTP
+error response. So, in order to treat errors you must invoke the
+methods in an eval block and test C<$@> or use any of the exception
+handling Perl modules, such as C<Try::Tiny> and C<Try::Catch>. The
+L</SYNOPSIS> section above shows some examples.
 
 =head2 GET RESOURCE
 
