@@ -1,6 +1,6 @@
 package Gerrit::REST::Exception;
 {
-  $Gerrit::REST::Exception::VERSION = '0.008';
+  $Gerrit::REST::Exception::VERSION = '0.009';
 }
 # ABSTRACT: Exception class for Gerrit::REST errors
 
@@ -10,7 +10,19 @@ use strict;
 use warnings;
 
 sub new {
-    my ($class, $code, $type, $content) = @_;
+    my $class = shift;
+
+    my ($code, $type, $content);
+    if (@_ == 3) {
+        ($code, $type, $content) = @_;
+    } elsif (@_ == 1) {
+        $code = 500;
+        $type = 'text/plain';
+        $content = shift;
+    } else {
+        die "$class::new require three arguments";
+    }
+
     return bless {
         code    => $code,
         type    => $type,
@@ -19,14 +31,14 @@ sub new {
 }
 
 sub as_text {
-    my ($op) = @_;
-    my $string = "Gerrit::REST::Exception[$op->{code}]: ";
-    if ($op->{type} =~ m:text/plain:i) {
-        $string .= $op->{content};
-    } elsif ($op->{type} =~ m:text/html:i && eval {require HTML::TreeBuilder}) {
-        $string .= HTML::TreeBuilder->new_from_content($op->{content})->as_text;
+    my ($self) = @_;
+    my $string = "Gerrit::REST::Exception[$self->{code}]: ";
+    if ($self->{type} =~ m:text/plain:i) {
+        $string .= $self->{content};
+    } elsif ($self->{type} =~ m:text/html:i && eval {require HTML::TreeBuilder}) {
+        $string .= HTML::TreeBuilder->new_from_content($self->{content})->as_text;
     } else {
-        $string .= "<unconvertable Content-Type '$op->{type}'>";
+        $string .= "<unconvertable Content-Type '$self->{type}'>";
     };
     $string =~ s/\n*$/\n/s;       # force ending in a single newline
     return $string;
@@ -44,7 +56,7 @@ Gerrit::REST::Exception - Exception class for Gerrit::REST errors
 
 =head1 VERSION
 
-version 0.008
+version 0.009
 
 =head1 DESCRIPTION
 
@@ -81,9 +93,15 @@ Read L<Gerrit::REST> documentation to know how to use it.
 
 =head1 METHODS
 
+=head2 new CONTENT
+
+If the constructor receives one argument it must be a string
+content. In this case, the C<code> is assumed to be 500 and the
+C<type> to be C<text/plain>.
+
 =head2 new CODE, TYPE, CONTENT
 
-The constructor needs three arguments: the C<code>, the
+If the constructor receives three arguments they are: the C<code>, the
 C<Content-Type>, and the C<content> of the REST HTTP error message.
 
 =head2 as_text
