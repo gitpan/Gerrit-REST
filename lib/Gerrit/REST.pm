@@ -1,8 +1,8 @@
 package Gerrit::REST;
 {
-  $Gerrit::REST::VERSION = '0.009';
+  $Gerrit::REST::VERSION = '0.010';
 }
-# ABSTRACT: A thin wrapper around Gerrit's REST API
+# ABSTRACT: Thin wrapper around Gerrit's REST API
 
 use 5.010;
 use utf8;
@@ -14,7 +14,6 @@ use URI;
 use JSON;
 use Data::Util qw/:check/;
 use REST::Client;
-use Gerrit::REST::Exception;
 
 sub new {
     my ($class, $URL, $username, $password, $rest_client_config) = @_;
@@ -68,6 +67,33 @@ sub new {
     } => $class;
 }
 
+sub _error {
+    my ($self, $content, $type, $code) = @_;
+
+    $type = 'text/plain' unless $type;
+    $code = 500          unless $code;
+
+    my $msg = __PACKAGE__ . " Error[$code";
+
+    if (eval {require HTTP::Status}) {
+        if (my $status = HTTP::Status::status_message($code)) {
+            $msg .= " - $status";
+        }
+    }
+
+    $msg .= "]:\n";
+
+    if ($type =~ m:text/plain:i) {
+        $msg .= $content;
+    } elsif ($type =~ m:text/html:i && eval {require HTML::TreeBuilder}) {
+        $msg .= HTML::TreeBuilder->new_from_content($content)->as_text;
+    } else {
+        $msg .= "<unconvertable Content-Type: '$type'>";
+    };
+    $msg =~ s/\n*$//s;       # strip trailing newlines
+    return $msg;
+}
+
 sub _content {
     my ($self) = @_;
 
@@ -76,10 +102,8 @@ sub _content {
     my $type    = $rest->responseHeader('Content-Type');
     my $content = $rest->responseContent();
 
-    ## no critic (ErrorHandling::RequireCarping)
-
     $code =~ /^2/
-        or die Gerrit::REST::Exception->new($code, $type, $content);
+        or croak $self->_error($content, $type, $code);
 
     if (! defined $type) {
         return;
@@ -87,28 +111,20 @@ sub _content {
         if (substr($content, 0, 4) eq ")]}'") {
             return $self->{json}->decode(substr($content, 5));
         } else {
-            die Gerrit::REST::Exception->new(
-                '500', 'text/plain',
-                "Missing \")]}'\" prefix for JSON content:\n$content\n",
-            );
+            croak $self->_error("Missing \")]}'\" prefix for JSON content:\n$content");
         }
     } elsif ($type =~ m:^text/plain:i) {
         return $content;
     } else {
-        die Gerrit::REST::Exception->new(
-            '500', 'text/plain',
-            "I don't understand content with Content-Type '$type'.\n",
-        );
+        croak $self->_error("I don't understand content with Content-Type '$type'");
     }
-
-    ## use critic
 }
 
 sub GET {
     my ($self, $resource) = @_;
 
-    eval { $self->{rest}->GET("/a$resource") };
-    die Gerrit::REST::Exception->new($@) if $@;
+    eval { $self->{rest}->GET("/a$resource") }
+        or croak $self->_error($@);
 
     return $self->_content();
 }
@@ -116,8 +132,8 @@ sub GET {
 sub DELETE {
     my ($self, $resource) = @_;
 
-    eval { $self->{rest}->DELETE("/a$resource") };
-    die Gerrit::REST::Exception->new($@) if $@;
+    eval { $self->{rest}->DELETE("/a$resource") }
+        or croak $self->_error($@);
 
     return $self->_content();
 }
@@ -129,8 +145,8 @@ sub PUT {
         "/a$resource",
         $self->{json}->encode($value),
         {'Content-Type' => 'application/json;charset=UTF-8'},
-    ) };
-    die Gerrit::REST::Exception->new($@) if $@;
+    ) }
+        or croak $self->_error($@);
 
     return $self->_content();
 }
@@ -142,8 +158,8 @@ sub POST {
         "/a$resource",
         $self->{json}->encode($value),
         {'Content-Type' => 'application/json;charset=UTF-8'},
-    ) };
-    die Gerrit::REST::Exception->new($@) if $@;
+    ) }
+        or croak $self->_error($@);
 
     return $self->_content();
 }
@@ -154,13 +170,15 @@ __END__
 
 =pod
 
+=encoding UTF-8
+
 =head1 NAME
 
-Gerrit::REST - A thin wrapper around Gerrit's REST API
+Gerrit::REST - Thin wrapper around Gerrit's REST API
 
 =head1 VERSION
 
-version 0.009
+version 0.010
 
 =head1 SYNOPSIS
 
@@ -191,17 +209,6 @@ version 0.009
         message => 'Some nits need to be fixed.',
         labels  => {'Code-Review' => -1},
     });
-
-    # How to deal with errors easily
-    my $project = eval { $gerrit->GET('/projects/myproject') };
-    die $@->as_text if $@;
-
-    # How to deal with errors thoroughly
-    my $project = eval { $gerrit->GET('/projects/myproject') };
-    if ($@) {
-        my ($code, $type, $content) = @{$@}{qw/code type content/};
-        # ...
-    }
 
 =head1 DESCRIPTION
 
@@ -264,10 +271,9 @@ Gerrit's REST endpoints.
 All four methods need a RESOURCE argument which is simply a string
 denoting the endpoint URL's path, as indicated in the documentation.
 
-PUT and POST need a second argument which is the VALUE that's a Perl
-data structure (usually a hash-ref, but sometimes a simple string)
-which is encoded using the C<encode> method of a C<JSON> object and
-passed as contents of the underlying associated HTTP method.
+PUT and POST second argument (usually a hash-ref, but sometimes a simple
+string) is encoded using the C<encode> method of a C<JSON> object and passed
+as contents of the underlying associated HTTP method.
 
 All four methods return the value returned by the associated
 endpoint's method, as specified in the documentation, decoded
@@ -291,14 +297,8 @@ Some endpoints don't return anything. In those cases, the methods
 return C<undef>. The methods croak if they get any other type of
 values in return.
 
-In case of errors (i.e., if the underlying HTTP method return an error
-code different from 2xx) the method dies throwing a
-C<Gerrit::REST::Exception> object. These objects are simple hash-refs
-containing the C<code>, the C<type>, and the C<content> of the HTTP
-error response. So, in order to treat errors you must invoke the
-methods in an eval block and test C<$@> or use any of the exception
-handling Perl modules, such as C<Try::Tiny> and C<Try::Catch>. The
-L</SYNOPSIS> section above shows some examples.
+In case of errors (i.e., if the underlying HTTP method return an error code
+different from 2xx) the methods croak with a string error message.
 
 =head2 GET RESOURCE
 
@@ -337,7 +337,7 @@ Gustavo L. de M. Chaves <gnustavo@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2013 by CPqD <www.cpqd.com.br>.
+This software is copyright (c) 2014 by CPqD <www.cpqd.com.br>.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
