@@ -34,4 +34,4 @@ requires:
 resources:
   homepage: https://metacpan.org/module/Gerrit::REST
   repository: https://github.com/gnustavo/Gerrit-REST.git
-version: 0.010
+version: 0.011
